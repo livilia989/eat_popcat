@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "팝캣 OIIA 파티",
+    "slug": "popcat-oiia-party",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#3A322E",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFE2D6"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.popcat.oiiaparty"
+    },
+    "android": {
+      "package": "com.popcat.oiiaparty",
+      "adaptiveIcon": {
+        "backgroundColor": "#FFE2D6",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
