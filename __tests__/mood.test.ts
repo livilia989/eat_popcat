@@ -25,10 +25,10 @@ describe('clampMood', () => {
 });
 
 describe('간식별 기분 상승량 (테스트 B)', () => {
-  it('쿠키 +2 / 치킨 +4 / 도넛 +3', () => {
-    expect(getSnack('cookie').moodGain).toBe(2);
-    expect(getSnack('chicken').moodGain).toBe(4);
-    expect(getSnack('donut').moodGain).toBe(3);
+  it('쿠키 +1 / 치킨 +3 / 도넛 +2', () => {
+    expect(getSnack('cookie').moodGain).toBe(1);
+    expect(getSnack('chicken').moodGain).toBe(3);
+    expect(getSnack('donut').moodGain).toBe(2);
     expect(SNACKS).toHaveLength(3);
   });
 
@@ -39,7 +39,31 @@ describe('간식별 기분 상승량 (테스트 B)', () => {
 
   it('100 을 초과하지 않는다', () => {
     expect(clampMood(99 + getSnack('chicken').moodGain)).toBe(100);
-    expect(clampMood(98 + getSnack('donut').moodGain)).toBe(100);
+    expect(clampMood(99 + getSnack('donut').moodGain)).toBe(100);
+  });
+});
+
+describe('게이지 하한 — 마이너스가 존재하지 않는다', () => {
+  const t0 = 1_700_000_000_000;
+
+  it('0 에서 아무리 오래 방치해도 0 이다', () => {
+    for (const mins of [1, 10, 60, 60 * 24, 60 * 24 * 365]) {
+      expect(computeCurrentMood(0, t0, t0 + mins * 60_000)).toBe(0);
+    }
+  });
+
+  it('감소량이 남은 기분보다 커도 0 에서 멈춘다', () => {
+    expect(computeCurrentMood(3, t0, t0 + 100 * MOOD_DECAY.intervalMs)).toBe(0);
+  });
+
+  it('저장된 값이 음수여도 0 으로 복원된다', () => {
+    expect(clampMood(-1)).toBe(0);
+    expect(clampMood(-9999)).toBe(0);
+  });
+
+  it('0 에서는 항상 "배고파요" 단계다', () => {
+    expect(getMoodStage(0).stage).toBe(0);
+    expect(getMoodLabel(0)).toBe('배고파요 😿');
   });
 });
 

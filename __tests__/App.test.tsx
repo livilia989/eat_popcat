@@ -45,17 +45,17 @@ describe('App 렌더링', () => {
 
     await waitFor(() => expect(screen.getByText('팝캣 OIIA 파티')).toBeTruthy());
 
-    // 기분 게이지 (기본 30 -> "조금 괜찮아요")
-    expect(screen.getByText('조금 괜찮아요 😐')).toBeTruthy();
-    expect(screen.getByTestId('mood-value')).toHaveTextContent('30 / 100');
+    // 기분 게이지 (기본 0 -> "배고파요")
+    expect(screen.getByText('배고파요 😿')).toBeTruthy();
+    expect(screen.getByTestId('mood-value')).toHaveTextContent('0 / 100');
 
     // 간식 3종
     expect(screen.getByText('쿠키')).toBeTruthy();
     expect(screen.getByText('치킨')).toBeTruthy();
     expect(screen.getByText('도넛')).toBeTruthy();
-    expect(screen.getByText('+2')).toBeTruthy();
-    expect(screen.getByText('+4')).toBeTruthy();
+    expect(screen.getByText('+1')).toBeTruthy();
     expect(screen.getByText('+3')).toBeTruthy();
+    expect(screen.getByText('+2')).toBeTruthy();
 
     // 사운드 토글
     expect(screen.getByText('ON')).toBeTruthy();

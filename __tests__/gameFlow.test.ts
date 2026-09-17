@@ -69,8 +69,8 @@ async function feedOnce(
   });
 }
 
-/** MOOD 30 에서 100 까지 필요한 치킨 개수 */
-const CHICKEN_TO_MAX = Math.ceil((100 - 30) / 4);
+/** MOOD 0 에서 100 까지 필요한 치킨 개수 */
+const CHICKEN_TO_MAX = Math.ceil(100 / 3);
 
 beforeEach(() => {
   AsyncStorage.__reset();
@@ -86,7 +86,7 @@ afterEach(() => {
 describe('테스트 A — 기본 먹이기', () => {
   it('쿠키를 먹이면 기분 +5, 총 간식 +1, 사운드 순서가 맞다', async () => {
     const { sound, hook } = await setup();
-    expect(hook.result.current.mood).toBe(30);
+    expect(hook.result.current.mood).toBe(0);
 
     act(() => {
       hook.result.current.feed('cookie', FROM, TO);
@@ -107,7 +107,7 @@ describe('테스트 A — 기본 먹이기', () => {
       jest.advanceTimersByTime(FEED_TOTAL);
     });
 
-    expect(hook.result.current.mood).toBe(32);
+    expect(hook.result.current.mood).toBe(1);
     expect(hook.result.current.totalSnacks).toBe(1);
     expect(hook.result.current.reaction).toBeTruthy();
     expect(hook.result.current.burstId).toBe(1);
@@ -156,7 +156,7 @@ describe('테스트 A — 기본 먹이기', () => {
       jest.advanceTimersByTime(FEED_TOTAL + 20);
     });
     expect(hook.result.current.totalSnacks).toBe(5);
-    expect(hook.result.current.mood).toBe(30 + 5 * 2);
+    expect(hook.result.current.mood).toBe(5 * 1);
   });
 
   it('동시 간식 수는 maxConcurrentSnacks 를 넘지 않는다', async () => {
@@ -168,17 +168,14 @@ describe('테스트 A — 기본 먹이기', () => {
     });
     expect(hook.result.current.flying).toHaveLength(EAT_CONFIG.maxConcurrentSnacks);
 
-    // 40개를 한꺼번에 먹으면 +80 이라 MAX 에 도달해 파티가 열린다
+    // 상한을 넘어 누른 만큼은 버려지고, 받아들인 개수만 정산된다
     await act(async () => {
       jest.advanceTimersByTime(FEED_TOTAL + 20);
     });
-    expect(hook.result.current.mood).toBe(100);
-    expect(hook.result.current.isDjPartyActive).toBe(true);
+    expect(hook.result.current.totalSnacks).toBe(EAT_CONFIG.maxConcurrentSnacks);
+    expect(hook.result.current.mood).toBe(EAT_CONFIG.maxConcurrentSnacks * 1);
 
-    // 파티가 끝나면 다시 정상적으로 받아들인다 (in-flight 카운터가 풀린다)
-    act(() => {
-      hook.result.current.endParty();
-    });
+    // 다 먹고 나면 in-flight 카운터가 풀려 다시 받아들인다
     act(() => {
       hook.result.current.feed('cookie', FROM, TO);
     });
@@ -187,15 +184,26 @@ describe('테스트 A — 기본 먹이기', () => {
 });
 
 describe('테스트 B — 간식 종류별 상승량', () => {
-  it('쿠키 +2, 치킨 +4, 도넛 +3 이 누적된다', async () => {
+  it('쿠키 +1, 치킨 +3, 도넛 +2 가 누적된다', async () => {
     const { hook } = await setup();
     await feedOnce(hook, 'cookie');
-    expect(hook.result.current.mood).toBe(32);
+    expect(hook.result.current.mood).toBe(1);
     await feedOnce(hook, 'chicken');
-    expect(hook.result.current.mood).toBe(36);
+    expect(hook.result.current.mood).toBe(4);
     await feedOnce(hook, 'donut');
-    expect(hook.result.current.mood).toBe(39);
+    expect(hook.result.current.mood).toBe(6);
     expect(hook.result.current.totalSnacks).toBe(3);
+  });
+
+  it('0 에서 시작하고 게이지는 음수가 되지 않는다', async () => {
+    const { hook } = await setup();
+    expect(hook.result.current.mood).toBe(0);
+
+    // 아무것도 먹이지 않고 하루가 지나도 0 이다
+    await act(async () => {
+      jest.advanceTimersByTime(24 * 60 * 60 * 1000);
+    });
+    expect(hook.result.current.mood).toBe(0);
   });
 });
 
@@ -247,7 +255,7 @@ describe('테스트 E — OIIA MAX 이벤트', () => {
   it('기분은 100 을 넘지 않는다', async () => {
     const { hook } = await setup();
     for (let i = 0; i < CHICKEN_TO_MAX - 1; i += 1) await feedOnce(hook, 'chicken');
-    expect(hook.result.current.mood).toBe(30 + (CHICKEN_TO_MAX - 1) * 4);
+    expect(hook.result.current.mood).toBe((CHICKEN_TO_MAX - 1) * 3);
     await feedOnce(hook, 'chicken');
     expect(hook.result.current.mood).toBe(100);
   });
@@ -288,7 +296,7 @@ describe('테스트 F/G — 사운드 설정과 저장', () => {
     await feedOnce(hook, 'donut');
     const raw = await AsyncStorage.getItem('@popcat_oiia_party/state/v1');
     const saved = JSON.parse(raw);
-    expect(saved.mood).toBe(33);
+    expect(saved.mood).toBe(2);
     expect(saved.totalSnacks).toBe(1);
     expect(saved.selectedSnack).toBe('donut');
   });

@@ -9,7 +9,8 @@ export const APP_VERSION = 1;
 /* ------------------------------------------------------------------ 기분 */
 export const MOOD_MIN = 0;
 export const MOOD_MAX = 100;
-export const INITIAL_MOOD = 30;
+/** 앱을 처음 켰을 때의 기분 — 0에서 시작해 직접 채워 올린다 */
+export const INITIAL_MOOD = 0;
 
 export const MOOD_DECAY = {
   /** 이 시간마다 */

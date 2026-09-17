@@ -43,10 +43,10 @@ beforeEach(() => {
 });
 
 describe('기본값', () => {
-  it('최초 시작 mood 는 30, 카운터는 0, 사운드는 ON', () => {
+  it('최초 시작 mood 는 0, 카운터는 0, 사운드는 ON', () => {
     const s = createDefaultState(1000);
     expect(s.mood).toBe(INITIAL_MOOD);
-    expect(s.mood).toBe(30);
+    expect(s.mood).toBe(0);
     expect(s.totalSnacks).toBe(0);
     expect(s.totalParties).toBe(0);
     expect(s.soundEnabled).toBe(true);
@@ -60,7 +60,7 @@ describe('normalize — 손상된 저장 데이터 방어', () => {
   it('null / 문자열 / 숫자 등 잘못된 입력은 기본값으로', () => {
     for (const bad of [null, undefined, 'oops', 42, []]) {
       const s = normalize(bad, now);
-      expect(s.mood).toBe(30);
+      expect(s.mood).toBe(0);
       expect(s.totalSnacks).toBe(0);
     }
   });
@@ -68,7 +68,9 @@ describe('normalize — 손상된 저장 데이터 방어', () => {
   it('범위를 벗어난 mood 는 0~100 으로 보정', () => {
     expect(normalize({ mood: 999 }, now).mood).toBe(100);
     expect(normalize({ mood: -50 }, now).mood).toBe(0);
-    expect(normalize({ mood: 'abc' }, now).mood).toBe(30);
+    expect(normalize({ mood: -0.4 }, now).mood).toBe(0);
+    expect(normalize({ mood: 'abc' }, now).mood).toBe(0);
+    expect(normalize({ mood: 57 }, now).mood).toBe(57);
   });
 
   it('음수/NaN 카운터는 0 으로', () => {
@@ -110,14 +112,14 @@ describe('저장 / 복원 왕복 (테스트 G)', () => {
 
   it('저장된 값이 없으면 기본값으로 시작한다', async () => {
     const loaded = await loadState(5_000);
-    expect(loaded.mood).toBe(30);
+    expect(loaded.mood).toBe(0);
     expect(loaded.lastInteractionAt).toBe(5_000);
   });
 
   it('깨진 JSON 이어도 크래시하지 않고 기본값으로 시작한다', async () => {
     mockStorage.getItem.mockResolvedValueOnce('{{{ not json');
     const loaded = await loadState(7_000);
-    expect(loaded.mood).toBe(30);
+    expect(loaded.mood).toBe(0);
   });
 
   it('저장소가 던져도 saveState 는 false 만 반환한다', async () => {
@@ -128,7 +130,7 @@ describe('저장 / 복원 왕복 (테스트 G)', () => {
   it('getItem 이 던져도 loadState 는 기본값을 준다', async () => {
     mockStorage.getItem.mockRejectedValueOnce(new Error('boom'));
     const loaded = await loadState(9_000);
-    expect(loaded.mood).toBe(30);
+    expect(loaded.mood).toBe(0);
   });
 
   it('resetState 는 키를 지운다', async () => {
