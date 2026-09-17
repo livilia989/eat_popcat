@@ -17,14 +17,14 @@
 ```
 
 간식은 **누르는 대로 전부** 먹는다. 연타 제한이 없다.
-먹을 때마다 팝캣이 수직축으로 반 바퀴씩 돌아 좌우가 뒤집히며,
-한 번 먹는 동안 2바퀴를 돌고 정확히 정면으로 돌아온다.
+한 번 먹을 때마다 팝캣이 수직축으로 **반 바퀴**씩 돌기 때문에
+먹일 때마다 좌우가 번갈아 뒤집힌다.
 
 | 기분 0 (시작) | 기분 50 (행복) | 기분 92 (파티 직전) | MOOD MAX (OIIA) |
 |---|---|---|---|
 | ![](docs/screenshots/01-hungry.png) | ![](docs/screenshots/02-happy.png) | ![](docs/screenshots/03-preparty.png) | ![](docs/screenshots/04-oiia-party.png) |
 
-먹을 때마다 좌우가 뒤집히며 도는 모습 (가운데는 정측면을 지나는 순간):
+한 입 먹는 동안 반 바퀴 — 정면 → 정측면 → 좌우반전 (실제 캡처 프레임):
 
 ![](docs/screenshots/05-flip.png)
 
@@ -42,7 +42,7 @@ npm start          # Expo 개발 서버 (QR 코드 표시)
 | `npm start` | Expo 개발 서버 실행 |
 | `npm run android` | 연결된 Android 기기/에뮬레이터에서 실행 |
 | `npm run web` | 브라우저에서 빠르게 확인 (레이아웃 점검용) |
-| `npm test` | 자동 테스트 (55개) |
+| `npm test` | 자동 테스트 (57개) |
 | `npm run typecheck` | TypeScript 타입 검사 |
 
 ## 2. Android 기기 테스트 방법
@@ -177,7 +177,7 @@ Metro 번들러는 `require()` 대상 파일을 **번들 시점**에 해석한�
 | 감소 속도 | `MOOD_DECAY.intervalMs` / `.amount` | 30초마다 `-1` |
 | 화면 갱신 주기 | `MOOD_DECAY.tickMs` | `1000` |
 | 간식 비행 시간 | `EAT_CONFIG.flightDuration` | `520ms` |
-| 뻐끔 프레임 | `EAT_CONFIG.popFrames` | 100/120/100/120/150ms (2회 뻐끔, 4회 반전) |
+| 뻐끔 프레임 | `EAT_CONFIG.popFrames` | 100/120/100/120/150ms (2회 뻐끔, 반 바퀴 1회) |
 | 좌우반전 속도 | `EAT_CONFIG.flipDuration` | `110ms` (반 바퀴) |
 | 화면 제목 | `APP_TITLE` | `맛있는 음식을 먹여주세요!` |
 | 연타 제한 | `EAT_CONFIG.inputCooldownMs` | `0` (누르는 대로 전부 먹인다) |
@@ -232,7 +232,7 @@ utils/mood.ts                기분 계산 순수 함수
 utils/anim.ts                빠른 반복 회전용 보간 헬퍼
 types/game.ts                타입 정의
 tools/                       에셋 생성 스크립트 (Python)
-__tests__/                   자동 테스트 55개
+__tests__/                   자동 테스트 57개
 ```
 
 ## 7. 기록 초기화
@@ -283,7 +283,7 @@ __tests__/                   자동 테스트 55개
 npm test
 ```
 
-55개 테스트 / 6개 스위트, 요구사항의 테스트 시나리오를 코드로 옮긴 것이다.
+57개 테스트 / 6개 스위트, 요구사항의 테스트 시나리오를 코드로 옮긴 것이다.
 
 | 파일 | 커버리지 |
 |---|---|

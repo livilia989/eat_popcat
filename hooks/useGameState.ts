@@ -156,8 +156,6 @@ export function useGameState(sound: SoundApi): GameApi {
     setChewCount(0);
     inFlightRef.current = 0;
     setMouthOpen(false);
-    if (flipStepRef.current % 2 !== 0) flipStepRef.current += 1;
-    setFlipStep(flipStepRef.current);
     setIsDjPartyActive(true);
   }, [clearAllTimers]);
 
@@ -247,9 +245,6 @@ export function useGameState(sound: SoundApi): GameApi {
           setChewCount((c) => Math.max(0, c - 1));
           inFlightRef.current = Math.max(0, inFlightRef.current - 1);
           setMouthOpen(false);
-          // 반 바퀴 단위를 짝수로 맞춰 정면을 보고 끝나게 한다
-          if (flipStepRef.current % 2 !== 0) flipStepRef.current += 1;
-          setFlipStep(flipStepRef.current);
 
           if (nextMood >= MOOD_MAX) {
             sound.play('mood_max');

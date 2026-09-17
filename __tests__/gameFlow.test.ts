@@ -144,6 +144,44 @@ describe('테스트 A — 기본 먹이기', () => {
     expect(hook.result.current.mouthOpen).toBe(false);
   });
 
+  it('한 번 먹을 때 반 바퀴(=1단계)만 돌고, 먹을 때마다 좌우가 번갈아 바뀐다', async () => {
+    const { hook } = await setup();
+    expect(hook.result.current.flipStep).toBe(0);
+
+    // 한 번의 간식 섭취 = 반 바퀴 = flipStep +1
+    await feedOnce(hook, 'cookie');
+    expect(hook.result.current.flipStep).toBe(1);
+
+    await feedOnce(hook, 'chicken');
+    expect(hook.result.current.flipStep).toBe(2);
+
+    await feedOnce(hook, 'donut');
+    expect(hook.result.current.flipStep).toBe(3);
+  });
+
+  it('뻐끔 시퀀스 안에서는 딱 한 번만 뒤집는다', async () => {
+    const { hook } = await setup();
+    const flips = EAT_CONFIG.popFrames.filter((f) => f.flip).length;
+    expect(flips).toBe(1);
+
+    act(() => {
+      hook.result.current.feed('cookie', FROM, TO);
+    });
+    // 뻐끔 프레임을 하나씩 지나는 동안 flipStep 이 2 이상 오르지 않는다
+    let elapsed = 0;
+    for (const frame of EAT_CONFIG.popFrames) {
+      await act(async () => {
+        jest.advanceTimersByTime(frame.duration);
+      });
+      elapsed += frame.duration;
+      expect(hook.result.current.flipStep).toBeLessThanOrEqual(1);
+    }
+    await act(async () => {
+      jest.advanceTimersByTime(FEED_TOTAL - elapsed + 20);
+    });
+    expect(hook.result.current.flipStep).toBe(1);
+  });
+
   it('연타하면 누르는 대로 전부 먹는다 (쿨다운 없음)', async () => {
     const { hook } = await setup();
     act(() => {
