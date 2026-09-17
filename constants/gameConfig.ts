@@ -35,8 +35,17 @@ export const EAT_CONFIG = {
     { open: true, duration: 120 },
     { open: false, duration: 150 },
   ],
-  /** 연타 방지용 최소 입력 간격 (터치가 답답하지 않을 정도로 짧게) */
-  inputCooldownMs: 260,
+  /**
+   * 입력 간격 제한(ms). 0 이면 누르는 대로 전부 먹인다.
+   * 연타를 막는 대신 아래 maxConcurrentSnacks 로만 보호한다.
+   */
+  inputCooldownMs: 0,
+  /**
+   * 동시에 날아갈 수 있는 간식 최대 개수.
+   * 연타를 제한하려는 값이 아니라(현실적으로 도달하지 않는다)
+   * 무한 누적으로 성능이 무너지는 것만 막는 안전장치다.
+   */
+  maxConcurrentSnacks: 40,
   /** 반응 문구가 떠 있는 시간 */
   reactionMs: 1200,
 };
@@ -45,8 +54,14 @@ export const EAT_CONFIG = {
 export const DJ_CONFIG = {
   /** 이벤트 전체 길이 */
   eventDuration: 8000,
-  /** 1회전에 걸리는 시간 */
-  rotationDuration: 2000,
+  /** 1회전에 걸리는 시간 (작을수록 빠르다) */
+  rotationDuration: 200,
+  /** 메인 팝캣 주위를 함께 도는 OIIA 고양이 수 */
+  satelliteCount: 8,
+  /** 위성 고양이가 제자리에서 1회전하는 시간 */
+  satelliteSpinDuration: 260,
+  /** 위성 고양이가 팝캣 주위를 한 바퀴 도는 시간 */
+  orbitDuration: 1500,
   /** 이벤트 종료 후 되돌아갈 기분 값 */
   resetMood: 35,
   /** 등장 연출 시간 */

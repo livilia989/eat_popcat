@@ -4,7 +4,7 @@
  * 별도의 DJ 고양이가 등장하지 않는다.
  * 방금까지 간식을 먹던 "그 팝캣"이 수직축(rotateY) 기준으로 360도 빙글빙글 돈다.
  */
-import React, { memo, useEffect, useRef, useState } from 'react';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   AppState,
@@ -19,10 +19,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { IMAGES } from '../constants/assets';
 import { DJ_CONFIG } from '../constants/gameConfig';
+import { repeatRange, turnsFor } from '../utils/anim';
+import OiiaCatSwarm from './OiiaCatSwarm';
 import ParticleEffect from './ParticleEffect';
 import PopcatCharacter from './PopcatCharacter';
 
 const PARTY_EMOJIS = ['🪩', '🎵', '💫', '🌈', '⭐', '🎶', '⚡', '💜'];
+
+/** 스트로브 조명 1회 깜빡임 / 레이저 1회전 시간 */
+const STROBE_CYCLE_MS = 440;
+const RAY_TURN_MS = 5200;
 
 type Props = { onFinish: () => void };
 
@@ -45,9 +51,17 @@ function OiiaPartyOverlayBase({ onFinish }: Props) {
   const onFinishRef = useRef(onFinish);
   onFinishRef.current = onFinish;
 
-  const catWidth = Math.min(width * 0.62, height * 0.32, 300);
+  // 위성 고양이가 팝캣 반지름의 약 1.02배 궤도를 돌기 때문에
+  // 메인 팝캣을 조금 작게 잡아야 무리 전체가 화면 안에 들어온다
+  const catWidth = Math.min(width * 0.38, height * 0.22, 210);
   // 배경의 디스코볼(상단 중앙)과 타이틀이 겹치지 않도록 위쪽 여백을 화면 비율로 잡는다
   const topPadding = Math.min(210, Math.max(72, height * 0.25));
+
+  // 이벤트 전체를 덮을 만큼의 회전 수를 미리 계산해 둔다
+  const totalMs = DJ_CONFIG.eventDuration + DJ_CONFIG.outroDuration + 400;
+  const spinTurns = turnsFor(totalMs, DJ_CONFIG.rotationDuration);
+  const strobeCycles = turnsFor(totalMs, STROBE_CYCLE_MS);
+  const rayTurns = turnsFor(totalMs, RAY_TURN_MS);
 
   useEffect(() => {
     startedAtRef.current = Date.now();
@@ -72,35 +86,33 @@ function OiiaPartyOverlayBase({ onFinish }: Props) {
     });
     intro.start();
 
-    // 🔁 360도 회전 루프
+    // 🔁 360도 회전 — 짧은 루프를 반복하지 않고 한 번에 spinTurns 바퀴를 돈다
     spin.setValue(0);
-    const spinLoop = Animated.loop(
-      Animated.timing(spin, {
-        toValue: 1,
-        duration: DJ_CONFIG.rotationDuration,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-    );
-    spinLoop.start();
+    const spinAnim = Animated.timing(spin, {
+      toValue: spinTurns,
+      duration: DJ_CONFIG.rotationDuration * spinTurns,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    });
+    spinAnim.start();
 
-    const strobeLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(strobe, { toValue: 1, duration: 220, useNativeDriver: true }),
-        Animated.timing(strobe, { toValue: 0, duration: 220, useNativeDriver: true }),
-      ]),
-    );
-    strobeLoop.start();
+    strobe.setValue(0);
+    const strobeAnim = Animated.timing(strobe, {
+      toValue: strobeCycles,
+      duration: STROBE_CYCLE_MS * strobeCycles,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    });
+    strobeAnim.start();
 
-    const raysLoop = Animated.loop(
-      Animated.timing(rays, {
-        toValue: 1,
-        duration: 5200,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-    );
-    raysLoop.start();
+    rays.setValue(0);
+    const raysAnim = Animated.timing(rays, {
+      toValue: rayTurns,
+      duration: RAY_TURN_MS * rayTurns,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    });
+    raysAnim.start();
 
     const timer = setTimeout(finish, DJ_CONFIG.eventDuration);
 
@@ -115,16 +127,38 @@ function OiiaPartyOverlayBase({ onFinish }: Props) {
       clearTimeout(timer);
       sub.remove();
       intro.stop();
-      spinLoop.stop();
-      strobeLoop.stop();
-      raysLoop.stop();
+      spinAnim.stop();
+      strobeAnim.stop();
+      raysAnim.stop();
     };
     // 마운트 시 한 번만 실행되어야 한다 (Animated.Value 와 ref 는 고정 참조)
-  }, [fade, rays, spin, strobe]);
+  }, [fade, rayTurns, rays, spin, spinTurns, strobe, strobeCycles]);
 
-  const rayRotate = rays.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-  const strobeOpacity = strobe.interpolate({ inputRange: [0, 1], outputRange: [0.06, 0.34] });
-  const titleScale = strobe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] });
+  // 값이 0 → turns/cycles 로 흐르므로 보간 범위도 거기에 맞춰야 한다.
+  // [0, 1] 범위로 두면 extrapolate 가 값을 끝없이 늘려
+  // 흰 스트로브가 화면 전체를 덮어버린다.
+  const rayRotate = rays.interpolate({
+    inputRange: [0, rayTurns],
+    outputRange: ['0deg', `${360 * rayTurns}deg`],
+  });
+  // interpolate 결과를 다시 interpolate 하면(중첩 보간) 값이 적용되지 않으므로
+  // 최종 값을 각각 직접 만든다.
+  const strobeOpacityRange = useMemo(
+    () => repeatRange(strobeCycles, [
+      { at: 0, value: 0.06 },
+      { at: 0.5, value: 0.34 },
+    ]),
+    [strobeCycles],
+  );
+  const titleScaleRange = useMemo(
+    () => repeatRange(strobeCycles, [
+      { at: 0, value: 1 },
+      { at: 0.5, value: 1.08 },
+    ]),
+    [strobeCycles],
+  );
+  const strobeOpacity = strobe.interpolate(strobeOpacityRange);
+  const titleScale = strobe.interpolate(titleScaleRange);
   const raySize = Math.max(width, height) * 1.6;
 
   return (
@@ -199,10 +233,17 @@ function OiiaPartyOverlayBase({ onFinish }: Props) {
         <Text style={styles.moodMax}>MOOD MAX!</Text>
       </View>
 
-      {/* 중앙: 회전하는 "그" 팝캣 */}
+      {/* 중앙: 회전하는 "그" 팝캣 + 함께 도는 OIIA 고양이 무리 */}
       <View style={styles.center}>
         <View style={[styles.spotlight, { width: catWidth * 1.5, height: catWidth * 1.5 }]} />
-        <PopcatCharacter width={catWidth} mouthOpen excited spin={spin} />
+        <OiiaCatSwarm centerSize={catWidth} />
+        <PopcatCharacter
+          width={catWidth}
+          mouthOpen
+          excited
+          spin={spin}
+          spinTurns={spinTurns}
+        />
       </View>
 
       {/* 하단 문구 */}
@@ -239,7 +280,7 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 8,
   },
-  center: { alignItems: 'center', justifyContent: 'center' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   spotlight: {
     position: 'absolute',
     borderRadius: 999,

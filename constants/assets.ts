@@ -30,6 +30,8 @@ export const IMAGES = {
   backgroundCozy: optional(() => require('../assets/images/background_cozy.png')),
   backgroundHappy: optional(() => require('../assets/images/background_happy.png')),
   backgroundParty: optional(() => require('../assets/images/background_party.png')),
+  /** MAX 이벤트에서 메인 팝캣 주위를 함께 도는 OIIA 고양이 */
+  oiiaCat: optional(() => require('../assets/images/oiia_cat.png')),
 };
 
 /** 팝캣 원본 프레임 비율 (416 x 443) — 레이아웃 계산에 사용 */

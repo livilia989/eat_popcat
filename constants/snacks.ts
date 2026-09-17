@@ -1,12 +1,17 @@
 import { SNACK_IMAGES } from './assets';
 import type { Snack, SnackType } from '../types/game';
 
+/**
+ * 간식별 기분 상승량.
+ * 연타 제한을 없앤 대신 상승량을 낮춰 게이지가 더 천천히 차도록 했다.
+ * (쿠키 5 / 치킨 10 / 도넛 7 -> 2 / 4 / 3)
+ */
 export const SNACKS: Snack[] = [
   {
     id: 'cookie',
     label: '쿠키',
     emoji: '🍪',
-    moodGain: 5,
+    moodGain: 2,
     image: SNACK_IMAGES.cookie,
     color: '#F6C177',
   },
@@ -14,7 +19,7 @@ export const SNACKS: Snack[] = [
     id: 'chicken',
     label: '치킨',
     emoji: '🍗',
-    moodGain: 10,
+    moodGain: 4,
     image: SNACK_IMAGES.chicken,
     color: '#F49A6B',
   },
@@ -22,7 +27,7 @@ export const SNACKS: Snack[] = [
     id: 'donut',
     label: '도넛',
     emoji: '🍩',
-    moodGain: 7,
+    moodGain: 3,
     image: SNACK_IMAGES.donut,
     color: '#F79AC0',
   },

@@ -5,7 +5,8 @@
 
 > 진짜 보상은 기분 게이지가 MAX가 되었을 때,
 > 방금까지 간식을 먹던 **그 팝캣이** OIIA OIIA 사운드와 함께
-> 갑자기 360도 빙글빙글 회전하는 장면이다.
+> 초당 5바퀴로 미친 듯이 회전하고,
+> 그 주위를 **OIIA 고양이 8마리가 공전하며 같이 도는** 장면이다.
 
 ```
 간식 먹이기 → 팝캣 뻐끔 → 기분 상승 → 배경이 화려해짐
@@ -30,7 +31,7 @@ npm start          # Expo 개발 서버 (QR 코드 표시)
 | `npm start` | Expo 개발 서버 실행 |
 | `npm run android` | 연결된 Android 기기/에뮬레이터에서 실행 |
 | `npm run web` | 브라우저에서 빠르게 확인 (레이아웃 점검용) |
-| `npm test` | 자동 테스트 (45개) |
+| `npm test` | 자동 테스트 (49개) |
 | `npm run typecheck` | TypeScript 타입 검사 |
 
 ## 2. Android 기기 테스트 방법
@@ -79,6 +80,7 @@ assets/
     background_cozy.png   # 기분 20~39  포근한 파스텔
     background_happy.png  # 기분 40~59  꽃 / 하트 / 별
     background_party.png  # 기분 60~100 네온 디스코
+    oiia_cat.png          # MAX 이벤트에서 함께 도는 OIIA 고양이 (360 x 360)
   snacks/                 # (선택) 간식 이미지 — 없으면 이모지로 자동 fallback
     cookie.png
     chicken.png
@@ -165,9 +167,13 @@ Metro 번들러는 `require()` 대상 파일을 **번들 시점**에 해석한�
 | 화면 갱신 주기 | `MOOD_DECAY.tickMs` | `1000` |
 | 간식 비행 시간 | `EAT_CONFIG.flightDuration` | `520ms` |
 | 뻐끔 프레임 | `EAT_CONFIG.popFrames` | 100/120/100/120/150ms (2회 뻐끔) |
-| 연타 제한 | `EAT_CONFIG.inputCooldownMs` | `260ms` |
+| 연타 제한 | `EAT_CONFIG.inputCooldownMs` | `0` (누르는 대로 전부 먹인다) |
+| 동시 간식 상한 | `EAT_CONFIG.maxConcurrentSnacks` | `40` (성능 안전장치) |
 | **이벤트 길이** | `DJ_CONFIG.eventDuration` | `8000ms` |
-| **1회전 시간** | `DJ_CONFIG.rotationDuration` | `2000ms` (총 4회전) |
+| **1회전 시간** | `DJ_CONFIG.rotationDuration` | `200ms` (초당 5바퀴, 총 40회전) |
+| **위성 고양이 수** | `DJ_CONFIG.satelliteCount` | `8` |
+| 위성 자전 시간 | `DJ_CONFIG.satelliteSpinDuration` | `260ms` |
+| 위성 공전 시간 | `DJ_CONFIG.orbitDuration` | `1500ms` |
 | **종료 후 기분** | `DJ_CONFIG.resetMood` | `35` |
 | 효과음/BGM 볼륨 | `SOUND_CONFIG.sfxVolume` / `.bgmVolume` | `0.85` / `0.7` |
 | 기분 단계·문구·파티클 | `MOOD_STAGES` | 6단계 |
@@ -177,9 +183,12 @@ Metro 번들러는 `require()` 대상 파일을 **번들 시점**에 해석한�
 
 | 간식 | id | 이모지 | moodGain |
 |---|---|---|---|
-| 쿠키 | `cookie` | 🍪 | **+5** |
-| 치킨 | `chicken` | 🍗 | **+10** |
-| 도넛 | `donut` | 🍩 | **+7** |
+| 쿠키 | `cookie` | 🍪 | **+2** |
+| 치킨 | `chicken` | 🍗 | **+4** |
+| 도넛 | `donut` | 🍩 | **+3** |
+
+연타 제한이 없기 때문에 상승량을 낮춰 게이지가 천천히 차도록 맞췄다.
+빠르게 두드릴수록 빨리 차는 대신, 한 번의 터치로는 조금씩만 오른다.
 
 에셋 경로와 입 위치 좌표는 **`constants/assets.ts`** (`POPCAT_MOUTH` 로 간식이 날아갈 목표점을 조정).
 
@@ -196,6 +205,7 @@ components/
   BurstEffect.tsx            먹을 때 터지는 하트/별
   DynamicBackground.tsx      배경 레이어 opacity 보간
   OiiaPartyOverlay.tsx       ⭐ MAX 이벤트 전체 화면 연출
+  OiiaCatSwarm.tsx           팝캣 주위를 공전 + 자전하는 OIIA 고양이 무리
   SoundToggle.tsx            사운드 ON/OFF
 hooks/
   useGameState.ts            상태 + 저장/복원 + 먹이기 시퀀스
@@ -204,9 +214,10 @@ hooks/
 services/storage.ts          AsyncStorage 래퍼 + 데이터 검증
 constants/                   gameConfig / snacks / assets
 utils/mood.ts                기분 계산 순수 함수
+utils/anim.ts                빠른 반복 회전용 보간 헬퍼
 types/game.ts                타입 정의
 tools/                       에셋 생성 스크립트 (Python)
-__tests__/                   자동 테스트 45개
+__tests__/                   자동 테스트 49개
 ```
 
 ## 7. 기분 감소가 정확한 이유 (중복 차감 없음)
@@ -237,13 +248,13 @@ __tests__/                   자동 테스트 45개
 npm test
 ```
 
-45개 테스트 / 6개 스위트, 요구사항의 테스트 시나리오를 코드로 옮긴 것이다.
+49개 테스트 / 6개 스위트, 요구사항의 테스트 시나리오를 코드로 옮긴 것이다.
 
 | 파일 | 커버리지 |
 |---|---|
 | `mood.test.ts` | 기분 보정, 간식별 상승량(B), 시간 감소(C), 상태 문구·단계(D) |
 | `storage.test.ts` | 기본값, 손상 데이터 방어, 저장/복원 왕복(G) |
-| `gameFlow.test.ts` | 먹이기 전체 시퀀스와 사운드 순서(A), 연타 제한, MAX 이벤트·리셋(E), 저장(G) |
+| `gameFlow.test.ts` | 먹이기 전체 시퀀스와 사운드 순서(A), 연타 동시 처리, MAX 이벤트·리셋(E), 저장(G) |
 | `useSound.test.ts` | 첫 터치 전 무음, ON/OFF(F), BGM 정리, 재생 실패 내성 |
 | `OiiaPartyOverlay.test.tsx` | 이벤트 텍스트, 8초 자동 종료, 언마운트 타이머 정리 |
 | `App.test.tsx` | 사운드 계층이 전부 실패해도 화면이 정상 렌더 |

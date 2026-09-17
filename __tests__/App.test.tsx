@@ -53,9 +53,9 @@ describe('App 렌더링', () => {
     expect(screen.getByText('쿠키')).toBeTruthy();
     expect(screen.getByText('치킨')).toBeTruthy();
     expect(screen.getByText('도넛')).toBeTruthy();
-    expect(screen.getByText('+5')).toBeTruthy();
-    expect(screen.getByText('+10')).toBeTruthy();
-    expect(screen.getByText('+7')).toBeTruthy();
+    expect(screen.getByText('+2')).toBeTruthy();
+    expect(screen.getByText('+4')).toBeTruthy();
+    expect(screen.getByText('+3')).toBeTruthy();
 
     // 사운드 토글
     expect(screen.getByText('ON')).toBeTruthy();

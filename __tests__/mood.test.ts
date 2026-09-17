@@ -25,15 +25,20 @@ describe('clampMood', () => {
 });
 
 describe('간식별 기분 상승량 (테스트 B)', () => {
-  it('쿠키 +5 / 치킨 +10 / 도넛 +7', () => {
-    expect(getSnack('cookie').moodGain).toBe(5);
-    expect(getSnack('chicken').moodGain).toBe(10);
-    expect(getSnack('donut').moodGain).toBe(7);
+  it('쿠키 +2 / 치킨 +4 / 도넛 +3', () => {
+    expect(getSnack('cookie').moodGain).toBe(2);
+    expect(getSnack('chicken').moodGain).toBe(4);
+    expect(getSnack('donut').moodGain).toBe(3);
     expect(SNACKS).toHaveLength(3);
   });
 
+  it('치킨 > 도넛 > 쿠키 순서는 유지된다', () => {
+    expect(getSnack('chicken').moodGain).toBeGreaterThan(getSnack('donut').moodGain);
+    expect(getSnack('donut').moodGain).toBeGreaterThan(getSnack('cookie').moodGain);
+  });
+
   it('100 을 초과하지 않는다', () => {
-    expect(clampMood(96 + getSnack('chicken').moodGain)).toBe(100);
+    expect(clampMood(99 + getSnack('chicken').moodGain)).toBe(100);
     expect(clampMood(98 + getSnack('donut').moodGain)).toBe(100);
   });
 });

@@ -4,21 +4,35 @@
  *  - eating : closed / open 프레임 교차 (뻐끔)
  *  - OIIA 이벤트 : perspective + rotateY 로 수직축 360도 회전
  */
-import React, { memo, useEffect, useRef, useState } from 'react';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
 import { IMAGES, POPCAT_ASPECT } from '../constants/assets';
+import { repeatRange } from '../utils/anim';
 
 type Props = {
   width: number;
   mouthOpen: boolean;
   excited?: boolean;
-  /** 0 → 1 이 1회전에 대응하는 Animated.Value (OIIA 이벤트에서 주입) */
+  /**
+   * OIIA 이벤트에서 주입되는 회전 값.
+   * 0 → spinTurns 로 흐르며, 1 증가할 때마다 한 바퀴 회전한다.
+   * (짧은 루프를 반복하는 대신 긴 애니메이션 하나로 여러 바퀴를 돈다)
+   */
   spin?: Animated.Value | null;
+  /** spin 값이 커버하는 총 회전 수 */
+  spinTurns?: number;
   style?: ViewStyle;
 };
 
-function PopcatCharacterBase({ width, mouthOpen, excited = false, spin = null, style }: Props) {
+function PopcatCharacterBase({
+  width,
+  mouthOpen,
+  excited = false,
+  spin = null,
+  spinTurns = 1,
+  style,
+}: Props) {
   const height = width / POPCAT_ASPECT;
   const breathe = useRef(new Animated.Value(0)).current;
   const [closedFailed, setClosedFailed] = useState(IMAGES.popcatClosed == null);
@@ -56,17 +70,24 @@ function PopcatCharacterBase({ width, mouthOpen, excited = false, spin = null, s
     outputRange: [1, excited ? 1.045 : 1.018],
   });
 
+  const turns = Math.max(1, Math.round(spinTurns));
+
   const rotateY = spin
-    ? spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] })
+    ? spin.interpolate({ inputRange: [0, turns], outputRange: ['0deg', `${360 * turns}deg`] })
     : undefined;
 
   // 뒤를 보는 구간(90°~270°)에서 살짝 어둡게 해 3D 느낌을 보강한다.
-  const backShade = spin
-    ? spin.interpolate({
-        inputRange: [0, 0.25, 0.5, 0.75, 1],
-        outputRange: [0, 0.45, 0.6, 0.45, 0],
-      })
-    : null;
+  const shadeRange = useMemo(
+    () =>
+      repeatRange(turns, [
+        { at: 0, value: 0 },
+        { at: 0.25, value: 0.45 },
+        { at: 0.5, value: 0.6 },
+        { at: 0.75, value: 0.45 },
+      ]),
+    [turns],
+  );
+  const backShade = spin ? spin.interpolate(shadeRange) : null;
 
   const transform: any[] = [{ perspective: 900 }, { translateY }, { scale: breathScale }];
   if (rotateY) transform.push({ rotateY });

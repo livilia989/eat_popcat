@@ -56,14 +56,11 @@ async function setup() {
   return { sound, hook };
 }
 
-/** 쿨다운을 넘기며 간식 1개를 끝까지 먹인다 */
+/** 간식 1개를 끝까지 먹인다 */
 async function feedOnce(
   hook: Awaited<ReturnType<typeof setup>>['hook'],
   snack: 'cookie' | 'chicken' | 'donut',
 ) {
-  await act(async () => {
-    jest.advanceTimersByTime(EAT_CONFIG.inputCooldownMs + 10);
-  });
   act(() => {
     hook.result.current.feed(snack, FROM, TO);
   });
@@ -71,6 +68,9 @@ async function feedOnce(
     jest.advanceTimersByTime(FEED_TOTAL + 20);
   });
 }
+
+/** MOOD 30 에서 100 까지 필요한 치킨 개수 */
+const CHICKEN_TO_MAX = Math.ceil((100 - 30) / 4);
 
 beforeEach(() => {
   AsyncStorage.__reset();
@@ -107,7 +107,7 @@ describe('테스트 A — 기본 먹이기', () => {
       jest.advanceTimersByTime(FEED_TOTAL);
     });
 
-    expect(hook.result.current.mood).toBe(35);
+    expect(hook.result.current.mood).toBe(32);
     expect(hook.result.current.totalSnacks).toBe(1);
     expect(hook.result.current.reaction).toBeTruthy();
     expect(hook.result.current.burstId).toBe(1);
@@ -144,30 +144,57 @@ describe('테스트 A — 기본 먹이기', () => {
     expect(hook.result.current.mouthOpen).toBe(false);
   });
 
-  it('연타해도 쿨다운 안에서는 한 번만 먹는다', async () => {
+  it('연타하면 누르는 대로 전부 먹는다 (쿨다운 없음)', async () => {
     const { hook } = await setup();
     act(() => {
-      hook.result.current.feed('cookie', FROM, TO);
-      hook.result.current.feed('cookie', FROM, TO);
-      hook.result.current.feed('cookie', FROM, TO);
+      for (let i = 0; i < 5; i += 1) hook.result.current.feed('cookie', FROM, TO);
     });
-    expect(hook.result.current.flying).toHaveLength(1);
+    // 5개가 동시에 날아간다
+    expect(hook.result.current.flying).toHaveLength(5);
+
     await act(async () => {
       jest.advanceTimersByTime(FEED_TOTAL + 20);
     });
-    expect(hook.result.current.totalSnacks).toBe(1);
+    expect(hook.result.current.totalSnacks).toBe(5);
+    expect(hook.result.current.mood).toBe(30 + 5 * 2);
+  });
+
+  it('동시 간식 수는 maxConcurrentSnacks 를 넘지 않는다', async () => {
+    const { hook } = await setup();
+    act(() => {
+      for (let i = 0; i < EAT_CONFIG.maxConcurrentSnacks + 15; i += 1) {
+        hook.result.current.feed('cookie', FROM, TO);
+      }
+    });
+    expect(hook.result.current.flying).toHaveLength(EAT_CONFIG.maxConcurrentSnacks);
+
+    // 40개를 한꺼번에 먹으면 +80 이라 MAX 에 도달해 파티가 열린다
+    await act(async () => {
+      jest.advanceTimersByTime(FEED_TOTAL + 20);
+    });
+    expect(hook.result.current.mood).toBe(100);
+    expect(hook.result.current.isDjPartyActive).toBe(true);
+
+    // 파티가 끝나면 다시 정상적으로 받아들인다 (in-flight 카운터가 풀린다)
+    act(() => {
+      hook.result.current.endParty();
+    });
+    act(() => {
+      hook.result.current.feed('cookie', FROM, TO);
+    });
+    expect(hook.result.current.flying).toHaveLength(1);
   });
 });
 
 describe('테스트 B — 간식 종류별 상승량', () => {
-  it('쿠키 +5, 치킨 +10, 도넛 +7 이 누적된다', async () => {
+  it('쿠키 +2, 치킨 +4, 도넛 +3 이 누적된다', async () => {
     const { hook } = await setup();
     await feedOnce(hook, 'cookie');
-    expect(hook.result.current.mood).toBe(35);
+    expect(hook.result.current.mood).toBe(32);
     await feedOnce(hook, 'chicken');
-    expect(hook.result.current.mood).toBe(45);
+    expect(hook.result.current.mood).toBe(36);
     await feedOnce(hook, 'donut');
-    expect(hook.result.current.mood).toBe(52);
+    expect(hook.result.current.mood).toBe(39);
     expect(hook.result.current.totalSnacks).toBe(3);
   });
 });
@@ -176,8 +203,7 @@ describe('테스트 E — OIIA MAX 이벤트', () => {
   it('mood 100 에서 파티가 시작되고, 종료하면 35 로 리셋된다', async () => {
     const { sound, hook } = await setup();
 
-    // 30 -> 100 : 치킨 7번 (30 + 70)
-    for (let i = 0; i < 7; i += 1) {
+    for (let i = 0; i < CHICKEN_TO_MAX; i += 1) {
       await feedOnce(hook, 'chicken');
     }
 
@@ -185,7 +211,7 @@ describe('테스트 E — OIIA MAX 이벤트', () => {
     expect(hook.result.current.isDjPartyActive).toBe(true);
     expect(sound.calls).toContain('play:mood_max');
     // MAX 때는 mood_up 대신 mood_max 가 난다
-    expect(sound.calls.filter((c) => c === 'play:mood_up')).toHaveLength(6);
+    expect(sound.calls.filter((c) => c === 'play:mood_up')).toHaveLength(CHICKEN_TO_MAX - 1);
 
     // 이벤트 중에는 간식 입력이 막힌다
     const snacksBefore = hook.result.current.totalSnacks;
@@ -207,7 +233,7 @@ describe('테스트 E — OIIA MAX 이벤트', () => {
 
   it('endParty 를 여러 번 불러도 totalParties 는 1 만 증가한다', async () => {
     const { hook } = await setup();
-    for (let i = 0; i < 7; i += 1) await feedOnce(hook, 'chicken');
+    for (let i = 0; i < CHICKEN_TO_MAX; i += 1) await feedOnce(hook, 'chicken');
     expect(hook.result.current.isDjPartyActive).toBe(true);
 
     act(() => {
@@ -220,10 +246,27 @@ describe('테스트 E — OIIA MAX 이벤트', () => {
 
   it('기분은 100 을 넘지 않는다', async () => {
     const { hook } = await setup();
-    for (let i = 0; i < 6; i += 1) await feedOnce(hook, 'chicken'); // 30 -> 90
-    expect(hook.result.current.mood).toBe(90);
-    await feedOnce(hook, 'chicken'); // 90 + 10 = 100 (초과 없음)
+    for (let i = 0; i < CHICKEN_TO_MAX - 1; i += 1) await feedOnce(hook, 'chicken');
+    expect(hook.result.current.mood).toBe(30 + (CHICKEN_TO_MAX - 1) * 4);
+    await feedOnce(hook, 'chicken');
     expect(hook.result.current.mood).toBe(100);
+  });
+
+  it('파티가 시작되면 날아가던 간식이 정리된다', async () => {
+    const { hook } = await setup();
+    for (let i = 0; i < CHICKEN_TO_MAX - 1; i += 1) await feedOnce(hook, 'chicken');
+
+    // MAX 를 만드는 간식과 함께 여러 개를 연타
+    act(() => {
+      for (let i = 0; i < 4; i += 1) hook.result.current.feed('chicken', FROM, TO);
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(FEED_TOTAL + 20);
+    });
+
+    expect(hook.result.current.isDjPartyActive).toBe(true);
+    expect(hook.result.current.flying).toHaveLength(0);
+    expect(hook.result.current.isEating).toBe(false);
   });
 });
 
@@ -245,7 +288,7 @@ describe('테스트 F/G — 사운드 설정과 저장', () => {
     await feedOnce(hook, 'donut');
     const raw = await AsyncStorage.getItem('@popcat_oiia_party/state/v1');
     const saved = JSON.parse(raw);
-    expect(saved.mood).toBe(37);
+    expect(saved.mood).toBe(33);
     expect(saved.totalSnacks).toBe(1);
     expect(saved.selectedSnack).toBe('donut');
   });

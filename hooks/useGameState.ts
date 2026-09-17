@@ -70,15 +70,19 @@ export function useGameState(sound: SoundApi): GameApi {
   const popTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const lastFeedAtRef = useRef(0);
   const flyingKeyRef = useRef(0);
+  /** 아직 정산되지 않은(날아가거나 씹는 중인) 간식 수 */
+  const inFlightRef = useRef(0);
   const partyActiveRef = useRef(false);
+  /**
+   * 저장 상태의 **동기** 진실원본.
+   * React state 는 렌더를 위한 거울이고, 실제 계산은 항상 이 ref 를 읽는다.
+   * 연타로 여러 간식이 같은 배치에서 정산될 때 setState 업데이터가
+   * 나중에 실행되는 탓에 기분/카운트가 한 번분만 반영되던 문제를 막는다.
+   */
   const persistedRef = useRef(persisted);
-  persistedRef.current = persisted;
-  partyActiveRef.current = isDjPartyActive;
 
   /** 파티 중에는 기분 감소를 멈춘다 (종료 시 어차피 resetMood 로 설정) */
   const mood = useMoodDecay(persisted.mood, persisted.lastInteractionAt, !ready || isDjPartyActive);
-  const moodRef = useRef(mood);
-  moodRef.current = mood;
 
   /* ---------------------------------------------------- 타이머 헬퍼 */
   const schedule = useCallback((fn: () => void, delay: number) => {
@@ -105,6 +109,7 @@ export function useGameState(sound: SoundApi): GameApi {
       const loaded = await loadState();
       if (cancelled || !mountedRef.current) return;
       const next = { ...loaded, firstLaunch: false };
+      persistedRef.current = next;
       setPersisted(next);
       setReady(true);
       // 복원 직후 정규화된 상태를 다시 저장해 둔다
@@ -118,12 +123,11 @@ export function useGameState(sound: SoundApi): GameApi {
   }, [clearAllTimers]);
 
   const commit = useCallback((patch: Partial<PersistedState>) => {
-    setPersisted((prev) => {
-      const next = { ...prev, ...patch };
-      persistedRef.current = next;
-      saveState(next);
-      return next;
-    });
+    // ref 를 먼저 갱신해야 같은 배치 안의 다음 정산이 최신 값을 읽는다
+    const next = { ...persistedRef.current, ...patch };
+    persistedRef.current = next;
+    saveState(next);
+    setPersisted(next);
   }, []);
 
   // 백그라운드로 갈 때 현재 상태를 한 번 더 저장 (빠른 종료 대비)
@@ -138,8 +142,15 @@ export function useGameState(sound: SoundApi): GameApi {
   const startParty = useCallback(() => {
     if (partyActiveRef.current) return; // 중복 실행 방지
     partyActiveRef.current = true;
+    // 연타로 아직 날아가는 중인 간식이 있으면 정리한다.
+    // (이벤트 중에 뒤늦게 정산 타이머가 터지면서 소리가 겹치는 것을 막는다)
+    clearAllTimers();
+    setFlying([]);
+    setChewCount(0);
+    inFlightRef.current = 0;
+    setMouthOpen(false);
     setIsDjPartyActive(true);
-  }, []);
+  }, [clearAllTimers]);
 
   const endParty = useCallback(() => {
     if (!partyActiveRef.current) return;
@@ -147,6 +158,7 @@ export function useGameState(sound: SoundApi): GameApi {
     setIsDjPartyActive(false);
     setFlying([]);
     setChewCount(0);
+    inFlightRef.current = 0;
     setMouthOpen(false);
     commit({
       mood: clampMood(DJ_CONFIG.resetMood),
@@ -178,8 +190,14 @@ export function useGameState(sound: SoundApi): GameApi {
     (snackId: SnackType, from: Point, to: Point) => {
       if (!ready || partyActiveRef.current) return;
       const now = Date.now();
-      if (now - lastFeedAtRef.current < EAT_CONFIG.inputCooldownMs) return; // 연타 제한
+      // inputCooldownMs 가 0 이면 누르는 대로 전부 먹인다
+      if (EAT_CONFIG.inputCooldownMs > 0 && now - lastFeedAtRef.current < EAT_CONFIG.inputCooldownMs) {
+        return;
+      }
+      // 무한 누적으로 성능이 무너지는 것만 막는 안전장치
+      if (inFlightRef.current >= EAT_CONFIG.maxConcurrentSnacks) return;
       lastFeedAtRef.current = now;
+      inFlightRef.current += 1;
 
       const snack = getSnack(snackId);
       sound.play('snack_throw');
@@ -214,6 +232,7 @@ export function useGameState(sound: SoundApi): GameApi {
           setReaction(pickReaction(snack, nextMood));
           setBurstId((b) => b + 1);
           setChewCount((c) => Math.max(0, c - 1));
+          inFlightRef.current = Math.max(0, inFlightRef.current - 1);
           setMouthOpen(false);
 
           if (nextMood >= MOOD_MAX) {
