@@ -6,6 +6,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import App from '../App';
+import { APP_TITLE } from '../constants/gameConfig';
 
 // SafeAreaProvider 는 테스트 환경에서 인셋을 못 구해 자식을 렌더하지 않는다
 jest.mock('react-native-safe-area-context', () =>
@@ -43,7 +44,8 @@ describe('App 렌더링', () => {
   it('사운드가 전부 실패해도 메인 화면이 정상적으로 뜬다', async () => {
     render(<App />);
 
-    await waitFor(() => expect(screen.getByText('팝캣 OIIA 파티')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(APP_TITLE)).toBeTruthy());
+    expect(APP_TITLE).toBe('맛있는 음식을 먹여주세요!');
 
     // 기분 게이지 (기본 0 -> "배고파요")
     expect(screen.getByText('배고파요 😿')).toBeTruthy();
@@ -59,6 +61,34 @@ describe('App 렌더링', () => {
 
     // 사운드 토글
     expect(screen.getByText('ON')).toBeTruthy();
+    // 초기화 버튼
+    expect(screen.getByLabelText('기록 초기화')).toBeTruthy();
+  });
+
+  it('초기화는 확인을 받은 뒤에만 기록을 지운다', async () => {
+    render(<App />);
+    await waitFor(() => expect(screen.getByText(APP_TITLE)).toBeTruthy());
+
+    // 간식을 먹여 기록을 만든다
+    fireEvent.press(screen.getByLabelText(/치킨 먹이기/));
+    await waitFor(() => expect(screen.getByTestId('mood-value')).toHaveTextContent('3 / 100'), {
+      timeout: 4000,
+    });
+
+    // 초기화 -> 취소하면 그대로다
+    fireEvent.press(screen.getByLabelText('기록 초기화'));
+    await waitFor(() => expect(screen.getByText('처음부터 다시 할까요?')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('취소'));
+    await waitFor(() => expect(screen.queryByText('처음부터 다시 할까요?')).toBeNull());
+    expect(screen.getByTestId('mood-value')).toHaveTextContent('3 / 100');
+
+    // 초기화 -> 확인하면 0 으로 돌아간다
+    fireEvent.press(screen.getByLabelText('기록 초기화'));
+    await waitFor(() => expect(screen.getByText('처음부터 다시 할까요?')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('초기화'));
+    await waitFor(() => expect(screen.getByTestId('mood-value')).toHaveTextContent('0 / 100'));
+    expect(screen.getByText('배고파요 😿')).toBeTruthy();
+    expect(screen.getByText('🍪 0   🪩 0')).toBeTruthy();
   });
 
   it('사운드 토글을 눌러도 크래시하지 않고 OFF 로 바뀐다', async () => {

@@ -8,6 +8,7 @@ import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
 import { IMAGES, POPCAT_ASPECT } from '../constants/assets';
+import { EAT_CONFIG } from '../constants/gameConfig';
 import { repeatRange } from '../utils/anim';
 
 type Props = {
@@ -22,6 +23,11 @@ type Props = {
   spin?: Animated.Value | null;
   /** spin 값이 커버하는 총 회전 수 */
   spinTurns?: number;
+  /**
+   * 먹을 때의 좌우반전 회전 단계. 1 증가할 때마다 반 바퀴(180°) 돈다.
+   * 계속 증가하는 값이라 연타해도 뒤로 되감기지 않고 앞으로만 돈다.
+   */
+  flipStep?: number;
   style?: ViewStyle;
 };
 
@@ -31,6 +37,7 @@ function PopcatCharacterBase({
   excited = false,
   spin = null,
   spinTurns = 1,
+  flipStep = 0,
   style,
 }: Props) {
   const height = width / POPCAT_ASPECT;
@@ -89,8 +96,28 @@ function PopcatCharacterBase({
   );
   const backShade = spin ? spin.interpolate(shadeRange) : null;
 
+  // 뻐끔거릴 때 수직축으로 반 바퀴씩 돌아 좌우가 뒤집힌다.
+  // perspective 와 함께 쓰면 단순 미러링이 아니라 진짜 도는 것처럼 보인다.
+  const flip = useRef(new Animated.Value(flipStep)).current;
+  useEffect(() => {
+    const anim = Animated.timing(flip, {
+      toValue: flipStep,
+      duration: EAT_CONFIG.flipDuration,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [flip, flipStep]);
+
+  const flipRotate = flip.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '180deg'],
+  });
+
   const transform: any[] = [{ perspective: 900 }, { translateY }, { scale: breathScale }];
   if (rotateY) transform.push({ rotateY });
+  transform.push({ rotateY: flipRotate });
 
   const bothMissing = closedFailed && openFailed;
   const showOpen = mouthOpen && !openFailed;

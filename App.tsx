@@ -19,15 +19,18 @@ import {
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import BurstEffect from './components/BurstEffect';
+import ConfirmDialog from './components/ConfirmDialog';
 import DynamicBackground from './components/DynamicBackground';
 import MoodGauge from './components/MoodGauge';
 import OiiaPartyOverlay from './components/OiiaPartyOverlay';
 import ParticleEffect from './components/ParticleEffect';
 import PopcatCharacter from './components/PopcatCharacter';
+import ResetButton from './components/ResetButton';
 import SnackFlying from './components/SnackFlying';
 import SnackSelector from './components/SnackSelector';
 import SoundToggle from './components/SoundToggle';
 import { POPCAT_ASPECT, POPCAT_MOUTH } from './constants/assets';
+import { APP_TITLE } from './constants/gameConfig';
 import { useGameState } from './hooks/useGameState';
 import { useSound } from './hooks/useSound';
 import { getMoodStage } from './utils/mood';
@@ -87,21 +90,40 @@ function GameScreen() {
 
   /* -------------------------------------------------------- 먹이기 핸들러 */
   const handleFeed = useCallback(
-    (snackId: SnackType, windowOrigin: Point) => {
+    (snackId: SnackType, windowOrigin: Point | null) => {
       // 사용자의 첫 터치 — 이 시점부터 오디오 재생이 허용된다
       sound.unlock();
       const rootOrigin = rootOriginRef.current;
       const mouth = mouthPointRef.current;
       const toWindow: Point = mouth ?? { x: width / 2, y: height * 0.42 };
-      const from: Point = {
-        x: windowOrigin.x - rootOrigin.x,
-        y: windowOrigin.y - rootOrigin.y,
-      };
+      // 버튼 위치를 아직 못 쟀으면 화면 하단 중앙에서 날아오게 한다
+      const from: Point = windowOrigin
+        ? { x: windowOrigin.x - rootOrigin.x, y: windowOrigin.y - rootOrigin.y }
+        : { x: width / 2, y: height * 0.82 };
       const to: Point = { x: toWindow.x - rootOrigin.x, y: toWindow.y - rootOrigin.y };
       game.feed(snackId, from, to);
     },
     [game, height, sound, width],
   );
+
+  const [confirmReset, setConfirmReset] = useState(false);
+
+  const { resetGame } = game;
+  const handleAskReset = useCallback(() => {
+    sound.unlock();
+    sound.play('button_click');
+    setConfirmReset(true);
+  }, [sound]);
+
+  const handleConfirmReset = useCallback(() => {
+    setConfirmReset(false);
+    sound.stopBgm(false);
+    resetGame();
+  }, [resetGame, sound]);
+
+  const handleCancelReset = useCallback(() => {
+    setConfirmReset(false);
+  }, []);
 
   const handleToggleSound = useCallback(() => {
     sound.unlock();
@@ -147,20 +169,33 @@ function GameScreen() {
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         {/* ------------------------------------------------------- 상단 */}
         <View style={styles.header}>
-          <View style={styles.titleBox}>
-            <Text style={[styles.title, { color: stage.textColor }]} numberOfLines={1}>
-              팝캣 OIIA 파티
-            </Text>
+          <Text
+            style={[styles.title, { color: stage.textColor }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
+            {APP_TITLE}
+          </Text>
+          <View style={styles.headerRow}>
             <Text style={[styles.subtitle, { color: stage.textColor }]} numberOfLines={1}>
               🍪 {game.totalSnacks}   🪩 {game.totalParties}
             </Text>
+            <View style={styles.headerButtons}>
+              <ResetButton
+                onPress={handleAskReset}
+                disabled={game.isDjPartyActive}
+                tint={stage.textColor}
+                panel={stage.panelColor}
+              />
+              <SoundToggle
+                enabled={game.soundEnabled}
+                onToggle={handleToggleSound}
+                tint={stage.textColor}
+                panel={stage.panelColor}
+              />
+            </View>
           </View>
-          <SoundToggle
-            enabled={game.soundEnabled}
-            onToggle={handleToggleSound}
-            tint={stage.textColor}
-            panel={stage.panelColor}
-          />
         </View>
 
         <View style={styles.gaugeBox}>
@@ -183,6 +218,7 @@ function GameScreen() {
               width={catWidth}
               mouthOpen={game.mouthOpen}
               excited={game.mood >= 80}
+              flipStep={game.flipStep}
             />
             {/* 간식이 도착할 지점(입) — 보이지 않는 앵커 */}
             <View
@@ -223,6 +259,15 @@ function GameScreen() {
 
       {/* ⭐ MAX 이벤트 */}
       {game.isDjPartyActive ? <OiiaPartyOverlay onFinish={handlePartyFinish} /> : null}
+
+      <ConfirmDialog
+        visible={confirmReset}
+        title="처음부터 다시 할까요?"
+        message={`기분과 지금까지 먹인 간식 ${game.totalSnacks}개, 파티 ${game.totalParties}회 기록이 모두 사라집니다.`}
+        confirmLabel="초기화"
+        onConfirm={handleConfirmReset}
+        onCancel={handleCancelReset}
+      />
     </View>
   );
 }
@@ -241,16 +286,19 @@ const styles = StyleSheet.create({
   loadingText: { fontSize: 15, fontWeight: '700', color: '#7A5442' },
 
   header: {
+    paddingTop: Platform.OS === 'android' ? 8 : 0,
+    marginBottom: 8,
+  },
+  title: { fontSize: 20, fontWeight: '900', letterSpacing: -0.3 },
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
-    paddingTop: Platform.OS === 'android' ? 8 : 0,
-    marginBottom: 8,
+    marginTop: 4,
   },
-  titleBox: { flexShrink: 1, gap: 1 },
-  title: { fontSize: 20, fontWeight: '900', letterSpacing: -0.3 },
-  subtitle: { fontSize: 12, fontWeight: '700', opacity: 0.85 },
+  headerButtons: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  subtitle: { fontSize: 12, fontWeight: '700', opacity: 0.85, flexShrink: 1 },
 
   gaugeBox: { marginBottom: 6 },
 

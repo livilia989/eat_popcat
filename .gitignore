@@ -47,3 +47,4 @@ yarn-error.*
 .mash.js
 .diag.js
 .shots.js
+.flip*.js

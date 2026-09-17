@@ -6,6 +6,9 @@ import type { MoodStage } from '../types/game';
 
 export const APP_VERSION = 1;
 
+/** 메인 화면 상단에 표시되는 제목 */
+export const APP_TITLE = '맛있는 음식을 먹여주세요!';
+
 /* ------------------------------------------------------------------ 기분 */
 export const MOOD_MIN = 0;
 export const MOOD_MAX = 100;
@@ -26,16 +29,21 @@ export const EAT_CONFIG = {
   /** 간식이 팝캣 입까지 날아가는 시간 */
   flightDuration: 520,
   /**
-   * 뻐끔 프레임 시퀀스(ms). true = 입 벌림(open), false = 입 다묾(closed).
+   * 뻐끔 프레임 시퀀스(ms). open = 입 벌림 여부.
    * 한 번의 간식 섭취에 2회 뻐끔한다.
+   *
+   * flip = 이 프레임에 들어갈 때 반 바퀴(180°) 더 돈다.
+   * 4번 = 2바퀴라서 먹기가 끝나면 정확히 정면으로 돌아온다.
    */
   popFrames: [
-    { open: false, duration: 100 },
-    { open: true, duration: 120 },
-    { open: false, duration: 100 },
-    { open: true, duration: 120 },
-    { open: false, duration: 150 },
+    { open: false, duration: 100, flip: false },
+    { open: true, duration: 120, flip: true },
+    { open: false, duration: 100, flip: true },
+    { open: true, duration: 120, flip: true },
+    { open: false, duration: 150, flip: true },
   ],
+  /** 반 바퀴 뒤집는 데 걸리는 시간 (프레임 길이와 비슷하게) */
+  flipDuration: 110,
   /**
    * 입력 간격 제한(ms). 0 이면 누르는 대로 전부 먹인다.
    * 연타를 막는 대신 아래 maxConcurrentSnacks 로만 보호한다.

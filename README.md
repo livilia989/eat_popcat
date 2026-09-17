@@ -1,4 +1,7 @@
-# 팝캣 OIIA 파티 (Popcat OIIA Party)
+# 맛있는 음식을 먹여주세요! (Popcat OIIA Party)
+
+> 화면·런처에 보이는 이름은 **"맛있는 음식을 먹여주세요!"** 이고,
+> 저장소·패키지 식별자(`popcat-oiia-party` / `com.popcat.oiiaparty`)는 그대로 둔다.
 
 팝캣에게 간식을 먹이는 개인용 캐주얼 모바일 게임.
 서버·로그인·회원가입·인터넷 통신 없이 **모든 데이터를 기기에만 저장**한다.
@@ -9,13 +12,21 @@
 > 그 주위를 **OIIA 고양이 8마리가 공전하며 같이 도는** 장면이다.
 
 ```
-간식 먹이기 → 팝캣 뻐끔 → 기분 상승 → 배경이 화려해짐
+간식 먹이기 → 팝캣 뻐끔 (좌우로 빙글빙글) → 기분 상승 → 배경이 화려해짐
    → 기분 MAX → OIIA OIIA 사운드 → 팝캣 360도 회전 → 파티 종료 → 반복
 ```
 
-| 기분 12 (배고픔) | 기분 50 (행복) | 기분 92 (파티 직전) | MOOD MAX (OIIA) |
+간식은 **누르는 대로 전부** 먹는다. 연타 제한이 없다.
+먹을 때마다 팝캣이 수직축으로 반 바퀴씩 돌아 좌우가 뒤집히며,
+한 번 먹는 동안 2바퀴를 돌고 정확히 정면으로 돌아온다.
+
+| 기분 0 (시작) | 기분 50 (행복) | 기분 92 (파티 직전) | MOOD MAX (OIIA) |
 |---|---|---|---|
 | ![](docs/screenshots/01-hungry.png) | ![](docs/screenshots/02-happy.png) | ![](docs/screenshots/03-preparty.png) | ![](docs/screenshots/04-oiia-party.png) |
+
+먹을 때마다 좌우가 뒤집히며 도는 모습 (가운데는 정측면을 지나는 순간):
+
+![](docs/screenshots/05-flip.png)
 
 ---
 
@@ -31,7 +42,7 @@ npm start          # Expo 개발 서버 (QR 코드 표시)
 | `npm start` | Expo 개발 서버 실행 |
 | `npm run android` | 연결된 Android 기기/에뮬레이터에서 실행 |
 | `npm run web` | 브라우저에서 빠르게 확인 (레이아웃 점검용) |
-| `npm test` | 자동 테스트 (54개) |
+| `npm test` | 자동 테스트 (55개) |
 | `npm run typecheck` | TypeScript 타입 검사 |
 
 ## 2. Android 기기 테스트 방법
@@ -166,7 +177,9 @@ Metro 번들러는 `require()` 대상 파일을 **번들 시점**에 해석한�
 | 감소 속도 | `MOOD_DECAY.intervalMs` / `.amount` | 30초마다 `-1` |
 | 화면 갱신 주기 | `MOOD_DECAY.tickMs` | `1000` |
 | 간식 비행 시간 | `EAT_CONFIG.flightDuration` | `520ms` |
-| 뻐끔 프레임 | `EAT_CONFIG.popFrames` | 100/120/100/120/150ms (2회 뻐끔) |
+| 뻐끔 프레임 | `EAT_CONFIG.popFrames` | 100/120/100/120/150ms (2회 뻐끔, 4회 반전) |
+| 좌우반전 속도 | `EAT_CONFIG.flipDuration` | `110ms` (반 바퀴) |
+| 화면 제목 | `APP_TITLE` | `맛있는 음식을 먹여주세요!` |
 | 연타 제한 | `EAT_CONFIG.inputCooldownMs` | `0` (누르는 대로 전부 먹인다) |
 | 동시 간식 상한 | `EAT_CONFIG.maxConcurrentSnacks` | `40` (성능 안전장치) |
 | **이벤트 길이** | `DJ_CONFIG.eventDuration` | `8000ms` |
@@ -207,6 +220,8 @@ components/
   OiiaPartyOverlay.tsx       ⭐ MAX 이벤트 전체 화면 연출
   OiiaCatSwarm.tsx           팝캣 주위를 공전 + 자전하는 OIIA 고양이 무리
   SoundToggle.tsx            사운드 ON/OFF
+  ResetButton.tsx            기록 초기화 버튼
+  ConfirmDialog.tsx          되돌릴 수 없는 동작 확인 (Alert 대신 직접 그린다)
 hooks/
   useGameState.ts            상태 + 저장/복원 + 먹이기 시퀀스
   useMoodDecay.ts            시간 경과 기분 감소
@@ -217,10 +232,22 @@ utils/mood.ts                기분 계산 순수 함수
 utils/anim.ts                빠른 반복 회전용 보간 헬퍼
 types/game.ts                타입 정의
 tools/                       에셋 생성 스크립트 (Python)
-__tests__/                   자동 테스트 54개
+__tests__/                   자동 테스트 55개
 ```
 
-## 7. 기분 감소가 정확한 이유 (중복 차감 없음)
+## 7. 기록 초기화
+
+상단 우측 **↺** 버튼을 누르면 확인 창이 뜨고, 확인해야만 초기화된다.
+
+- 기분 → `0`, 총 간식 → `0`, 총 파티 → `0`
+- **사운드 ON/OFF 설정은 유지된다** (진행도가 아니라 환경설정이므로)
+- 저장소도 함께 비워지므로 앱을 다시 켜도 초기화 상태가 유지된다
+- OIIA 이벤트 중에는 버튼이 비활성화된다
+
+확인 창은 React Native 의 `Alert` 대신 `ConfirmDialog` 로 직접 그렸다.
+`Alert` 는 웹(react-native-web)에서 동작하지 않아 플랫폼마다 결과가 달라지기 때문이다.
+
+## 8. 기분 감소가 정확한 이유 (중복 차감 없음)
 
 `setInterval` 로 기분을 "깎지" 않는다. 저장하는 것은 두 값뿐이다.
 
@@ -250,13 +277,13 @@ __tests__/                   자동 테스트 54개
 - 저장 데이터 복원 — `normalize()` 가 음수·NaN·문자열을 0으로 보정한다
 - 게이지 렌더링 — 채움 비율을 `0~1` 로 한 번 더 조인다
 
-## 8. 자동 테스트
+## 9. 자동 테스트
 
 ```bash
 npm test
 ```
 
-54개 테스트 / 6개 스위트, 요구사항의 테스트 시나리오를 코드로 옮긴 것이다.
+55개 테스트 / 6개 스위트, 요구사항의 테스트 시나리오를 코드로 옮긴 것이다.
 
 | 파일 | 커버리지 |
 |---|---|
@@ -265,9 +292,9 @@ npm test
 | `gameFlow.test.ts` | 먹이기 전체 시퀀스와 사운드 순서(A), 연타 동시 처리, MAX 이벤트·리셋(E), 저장(G) |
 | `useSound.test.ts` | 첫 터치 전 무음, ON/OFF(F), BGM 정리, 재생 실패 내성 |
 | `OiiaPartyOverlay.test.tsx` | 이벤트 텍스트, 8초 자동 종료, 언마운트 타이머 정리 |
-| `App.test.tsx` | 사운드 계층이 전부 실패해도 화면이 정상 렌더 |
+| `App.test.tsx` | 사운드 계층이 전부 실패해도 화면이 정상 렌더, 초기화 확인 흐름 |
 
-## 9. 기술 스택
+## 10. 기술 스택
 
 - React Native 0.86 / Expo SDK 57 / TypeScript (strict)
 - React Native `Animated` (전부 `useNativeDriver`) — Reanimated 불필요
@@ -275,7 +302,7 @@ npm test
 - `expo-linear-gradient` (배경 그라디언트), `react-native-safe-area-context`
 - 백엔드·DB·로그인 없음
 
-## 10. 라이선스 / 에셋 출처
+## 11. 라이선스 / 에셋 출처
 
 개인용 프로젝트. 팝캣 캐릭터 이미지는 사용자가 제공한 원본 밈 이미지에서 추출했다.
 배경·효과음은 `tools/` 의 스크립트로 생성한 것이다.

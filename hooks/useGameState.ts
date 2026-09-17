@@ -13,7 +13,7 @@ import {
   REACTIONS_HIGH_MOOD,
 } from '../constants/gameConfig';
 import { getSnack } from '../constants/snacks';
-import { createDefaultState, loadState, saveState } from '../services/storage';
+import { createDefaultState, loadState, resetState, saveState } from '../services/storage';
 import { clampMood, computeCurrentMood } from '../utils/mood';
 import type { PersistedState, Point, Snack, SnackType } from '../types/game';
 import { useMoodDecay } from './useMoodDecay';
@@ -36,6 +36,8 @@ export type GameApi = {
   isEating: boolean;
   isDjPartyActive: boolean;
   mouthOpen: boolean;
+  /** 먹을 때의 좌우반전 단계 (1 증가 = 반 바퀴) */
+  flipStep: number;
   reaction: string | null;
   /** 기분이 오를 때마다 증가 — 파티클 버스트 트리거용 */
   burstId: number;
@@ -43,6 +45,8 @@ export type GameApi = {
   selectSnack: (snackId: SnackType) => void;
   toggleSound: () => void;
   endParty: () => void;
+  /** 기분과 기록을 전부 초기값으로 되돌린다 */
+  resetGame: () => void;
   flying: FlyingSnack[];
 };
 
@@ -62,6 +66,7 @@ export function useGameState(sound: SoundApi): GameApi {
   const [flying, setFlying] = useState<FlyingSnack[]>([]);
   const [chewCount, setChewCount] = useState(0);
   const [mouthOpen, setMouthOpen] = useState(false);
+  const [flipStep, setFlipStep] = useState(0);
   const [reaction, setReaction] = useState<string | null>(null);
   const [burstId, setBurstId] = useState(0);
 
@@ -72,6 +77,8 @@ export function useGameState(sound: SoundApi): GameApi {
   const flyingKeyRef = useRef(0);
   /** 아직 정산되지 않은(날아가거나 씹는 중인) 간식 수 */
   const inFlightRef = useRef(0);
+  /** 좌우반전 단계 — 되감기지 않도록 증가만 한다 */
+  const flipStepRef = useRef(0);
   const partyActiveRef = useRef(false);
   /**
    * 저장 상태의 **동기** 진실원본.
@@ -149,6 +156,8 @@ export function useGameState(sound: SoundApi): GameApi {
     setChewCount(0);
     inFlightRef.current = 0;
     setMouthOpen(false);
+    if (flipStepRef.current % 2 !== 0) flipStepRef.current += 1;
+    setFlipStep(flipStepRef.current);
     setIsDjPartyActive(true);
   }, [clearAllTimers]);
 
@@ -176,6 +185,10 @@ export function useGameState(sound: SoundApi): GameApi {
       const id = setTimeout(() => {
         if (!mountedRef.current) return;
         setMouthOpen(frame.open);
+        if (frame.flip) {
+          flipStepRef.current += 1;
+          setFlipStep(flipStepRef.current);
+        }
         // 입을 처음 벌리는 순간 뻐끔 사운드
         if (frame.open && index === 1) sound.play('popcat_pop');
       }, elapsed);
@@ -234,6 +247,9 @@ export function useGameState(sound: SoundApi): GameApi {
           setChewCount((c) => Math.max(0, c - 1));
           inFlightRef.current = Math.max(0, inFlightRef.current - 1);
           setMouthOpen(false);
+          // 반 바퀴 단위를 짝수로 맞춰 정면을 보고 끝나게 한다
+          if (flipStepRef.current % 2 !== 0) flipStepRef.current += 1;
+          setFlipStep(flipStepRef.current);
 
           if (nextMood >= MOOD_MAX) {
             sound.play('mood_max');
@@ -248,6 +264,34 @@ export function useGameState(sound: SoundApi): GameApi {
     },
     [commit, ready, runPopAnimation, schedule, sound, startParty],
   );
+
+  /* ------------------------------------------------------------ 초기화 */
+  const resetGame = useCallback(() => {
+    clearAllTimers();
+    partyActiveRef.current = false;
+    inFlightRef.current = 0;
+    flipStepRef.current = 0;
+    lastFeedAtRef.current = 0;
+
+    setIsDjPartyActive(false);
+    setFlying([]);
+    setChewCount(0);
+    setMouthOpen(false);
+    setFlipStep(0);
+    setReaction(null);
+    setBurstId(0);
+
+    // 사운드 설정은 진행도가 아니라 환경설정이므로 유지한다
+    const fresh = {
+      ...createDefaultState(Date.now()),
+      firstLaunch: false,
+      soundEnabled: persistedRef.current.soundEnabled,
+    };
+    persistedRef.current = fresh;
+    setPersisted(fresh);
+    // 저장 키를 비우고 기본값을 다시 써 둔다
+    resetState().finally(() => saveState(fresh));
+  }, [clearAllTimers]);
 
   /* -------------------------------------------------------- 기타 액션 */
   const selectSnack = useCallback(
@@ -273,12 +317,14 @@ export function useGameState(sound: SoundApi): GameApi {
       isEating: chewCount > 0,
       isDjPartyActive,
       mouthOpen,
+      flipStep,
       reaction,
       burstId,
       feed,
       selectSnack,
       toggleSound,
       endParty,
+      resetGame,
       flying,
     }),
     [
@@ -286,6 +332,7 @@ export function useGameState(sound: SoundApi): GameApi {
       chewCount,
       endParty,
       feed,
+      flipStep,
       flying,
       isDjPartyActive,
       mood,
@@ -296,6 +343,7 @@ export function useGameState(sound: SoundApi): GameApi {
       persisted.totalSnacks,
       reaction,
       ready,
+      resetGame,
       selectSnack,
       toggleSound,
     ],
