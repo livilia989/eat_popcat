@@ -36,6 +36,14 @@ function OiiaPartyOverlayBase({ onFinish }: Props) {
 
   const finishedRef = useRef(false);
   const startedAtRef = useRef(Date.now());
+  /**
+   * onFinish 를 ref 로 들고 있는다.
+   * 부모가 리렌더될 때마다 콜백 identity 가 바뀌면 아래 effect 가 재실행되어
+   * 8초 타이머와 회전 애니메이션이 처음부터 다시 시작되기 때문이다.
+   * (그러면 파티가 제때 끝나지 않고 mood 가 100 에 머문다.)
+   */
+  const onFinishRef = useRef(onFinish);
+  onFinishRef.current = onFinish;
 
   const catWidth = Math.min(width * 0.62, height * 0.32, 300);
   // 배경의 디스코볼(상단 중앙)과 타이틀이 겹치지 않도록 위쪽 여백을 화면 비율로 잡는다
@@ -52,7 +60,7 @@ function OiiaPartyOverlayBase({ onFinish }: Props) {
         toValue: 0,
         duration: DJ_CONFIG.outroDuration,
         useNativeDriver: true,
-      }).start(() => onFinish());
+      }).start(() => onFinishRef.current());
     };
 
     // 등장
@@ -111,7 +119,8 @@ function OiiaPartyOverlayBase({ onFinish }: Props) {
       strobeLoop.stop();
       raysLoop.stop();
     };
-  }, [fade, onFinish, rays, spin, strobe]);
+    // 마운트 시 한 번만 실행되어야 한다 (Animated.Value 와 ref 는 고정 참조)
+  }, [fade, rays, spin, strobe]);
 
   const rayRotate = rays.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
   const strobeOpacity = strobe.interpolate({ inputRange: [0, 1], outputRange: [0.06, 0.34] });

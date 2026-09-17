@@ -119,9 +119,11 @@ function GameScreen() {
     }
   }, [game.isDjPartyActive, sound]);
 
+  // game 객체 전체가 아니라 안정적인 endParty 만 의존한다 (콜백 identity 고정)
+  const { endParty } = game;
   const handlePartyFinish = useCallback(() => {
-    game.endParty();
-  }, [game]);
+    endParty();
+  }, [endParty]);
 
   if (!game.ready) {
     return (
