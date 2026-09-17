@@ -11,27 +11,47 @@
  */
 import type { SoundKey } from '../types/game';
 
-type AssetModule = number | null;
+/**
+ * require() 의 반환 형태는 플랫폼마다 다르다.
+ *  - 네이티브: 숫자 (에셋 레지스트리 id)
+ *  - 웹:      문자열 URL / data URI, 또는 { uri } 객체
+ *
+ * 예전에는 숫자와 객체만 통과시켜서 **웹에서 사운드가 전부 null 이 되어
+ * 소리가 하나도 나지 않았다.** 문자열도 정상적인 소스다.
+ */
+export type ImageAsset = number | { uri: string } | null;
+export type SoundAsset = number | string | { uri: string } | null;
 
-function optional(loader: () => number): AssetModule {
+export function resolveAssetSource(loader: () => unknown): number | string | { uri: string } | null {
   try {
     const mod = loader();
-    return typeof mod === 'number' || (mod && typeof mod === 'object') ? mod : null;
+    if (typeof mod === 'number') return mod;
+    if (typeof mod === 'string') return mod.length > 0 ? mod : null;
+    if (mod && typeof mod === 'object') return mod as { uri: string };
+    return null;
   } catch {
     return null;
   }
 }
 
+const optionalImage = (loader: () => unknown): ImageAsset => {
+  const mod = resolveAssetSource(loader);
+  // RN 의 Image source 는 문자열을 직접 받지 못하므로 { uri } 로 감싼다
+  return typeof mod === 'string' ? { uri: mod } : (mod as ImageAsset);
+};
+
+const optionalSound = (loader: () => unknown): SoundAsset => resolveAssetSource(loader);
+
 /* --------------------------------------------------------------- 이미지 */
 export const IMAGES = {
-  popcatClosed: optional(() => require('../assets/images/popcat_closed.png')),
-  popcatOpen: optional(() => require('../assets/images/popcat_open.png')),
-  backgroundBase: optional(() => require('../assets/images/background_base.png')),
-  backgroundCozy: optional(() => require('../assets/images/background_cozy.png')),
-  backgroundHappy: optional(() => require('../assets/images/background_happy.png')),
-  backgroundParty: optional(() => require('../assets/images/background_party.png')),
+  popcatClosed: optionalImage(() => require('../assets/images/popcat_closed.png')),
+  popcatOpen: optionalImage(() => require('../assets/images/popcat_open.png')),
+  backgroundBase: optionalImage(() => require('../assets/images/background_base.png')),
+  backgroundCozy: optionalImage(() => require('../assets/images/background_cozy.png')),
+  backgroundHappy: optionalImage(() => require('../assets/images/background_happy.png')),
+  backgroundParty: optionalImage(() => require('../assets/images/background_party.png')),
   /** MAX 이벤트에서 메인 팝캣 주위를 함께 도는 OIIA 고양이 */
-  oiiaCat: optional(() => require('../assets/images/oiia_cat.png')),
+  oiiaCat: optionalImage(() => require('../assets/images/oiia_cat.png')),
 };
 
 /** 팝캣 원본 프레임 비율 (416 x 443) — 레이아웃 계산에 사용 */
@@ -45,14 +65,14 @@ export const POPCAT_ASPECT = 416 / 443;
 export const POPCAT_MOUTH = { x: 0.584, y: 0.476 };
 
 /* --------------------------------------------------------------- 사운드 */
-export const SOUNDS: Record<SoundKey, AssetModule> = {
-  popcat_pop: optional(() => require('../assets/sounds/popcat_pop.mp3')),
-  snack_throw: optional(() => require('../assets/sounds/snack_throw.mp3')),
-  snack_eat: optional(() => require('../assets/sounds/snack_eat.mp3')),
-  mood_up: optional(() => require('../assets/sounds/mood_up.mp3')),
-  mood_max: optional(() => require('../assets/sounds/mood_max.mp3')),
-  button_click: optional(() => require('../assets/sounds/button_click.mp3')),
-  oiia_loop: optional(() => require('../assets/sounds/oiia_loop.mp3')),
+export const SOUNDS: Record<SoundKey, SoundAsset> = {
+  popcat_pop: optionalSound(() => require('../assets/sounds/popcat_pop.mp3')),
+  snack_throw: optionalSound(() => require('../assets/sounds/snack_throw.mp3')),
+  snack_eat: optionalSound(() => require('../assets/sounds/snack_eat.mp3')),
+  mood_up: optionalSound(() => require('../assets/sounds/mood_up.mp3')),
+  mood_max: optionalSound(() => require('../assets/sounds/mood_max.mp3')),
+  button_click: optionalSound(() => require('../assets/sounds/button_click.mp3')),
+  oiia_loop: optionalSound(() => require('../assets/sounds/oiia_loop.mp3')),
 };
 
 /**
@@ -60,10 +80,10 @@ export const SOUNDS: Record<SoundKey, AssetModule> = {
  * assets/snacks/*.png 를 넣고 싶다면 아래 주석을 해제하고 `null` 을 교체하면 된다.
  * 넣지 않으면 이모지로 자동 fallback 된다.
  */
-export const SNACK_IMAGES: Record<string, AssetModule> = {
-  // cookie: optional(() => require('../assets/snacks/cookie.png')),
-  // chicken: optional(() => require('../assets/snacks/chicken.png')),
-  // donut: optional(() => require('../assets/snacks/donut.png')),
+export const SNACK_IMAGES: Record<string, ImageAsset> = {
+  // cookie: optionalImage(() => require('../assets/snacks/cookie.png')),
+  // chicken: optionalImage(() => require('../assets/snacks/chicken.png')),
+  // donut: optionalImage(() => require('../assets/snacks/donut.png')),
   cookie: null,
   chicken: null,
   donut: null,

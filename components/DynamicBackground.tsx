@@ -9,12 +9,12 @@ import React, { memo, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { IMAGES } from '../constants/assets';
+import { IMAGES, type ImageAsset } from '../constants/assets';
 import { ramp } from '../utils/mood';
 
 type LayerDef = {
   key: string;
-  image: number | null;
+  image: ImageAsset;
   colors: [string, string, string];
   /** mood 가 from → to 로 갈 때 0 → 1 로 나타난다 */
   from: number;

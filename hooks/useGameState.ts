@@ -179,7 +179,7 @@ export function useGameState(sound: SoundApi): GameApi {
     popTimersRef.current.forEach(clearTimeout);
     popTimersRef.current = [];
     let elapsed = 0;
-    EAT_CONFIG.popFrames.forEach((frame, index) => {
+    EAT_CONFIG.popFrames.forEach((frame) => {
       const id = setTimeout(() => {
         if (!mountedRef.current) return;
         setMouthOpen(frame.open);
@@ -187,8 +187,8 @@ export function useGameState(sound: SoundApi): GameApi {
           flipStepRef.current += 1;
           setFlipStep(flipStepRef.current);
         }
-        // 입을 처음 벌리는 순간 뻐끔 사운드
-        if (frame.open && index === 1) sound.play('popcat_pop');
+        // 입을 벌릴 때마다 뻐끔 사운드 — 한 입에 "뻐끔뻐끔" 두 번 난다
+        if (frame.open) sound.play('popcat_pop');
       }, elapsed);
       popTimersRef.current.push(id);
       elapsed += frame.duration;

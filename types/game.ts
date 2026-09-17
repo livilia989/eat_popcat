@@ -1,4 +1,5 @@
 /** 팝캣 OIIA 파티 - 전역 타입 정의 */
+import type { ImageAsset } from '../constants/assets';
 
 export type SnackType = 'cookie' | 'chicken' | 'donut';
 
@@ -8,7 +9,7 @@ export type Snack = {
   emoji: string;
   moodGain: number;
   /** assets/snacks/*.png 가 있으면 사용, 없으면 emoji 로 fallback */
-  image: number | null;
+  image: ImageAsset;
   color: string;
 };
 

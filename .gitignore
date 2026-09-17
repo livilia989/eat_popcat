@@ -48,3 +48,6 @@ yarn-error.*
 .diag.js
 .shots.js
 .flip*.js
+.audio*.js
+.dbg*.js
+.probe.js

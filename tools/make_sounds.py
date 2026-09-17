@@ -1,8 +1,11 @@
 """
-assets/sounds/*.mp3 placeholder 사운드를 합성한다.
-oiia_loop.mp3 는 사용자가 실제 OIIA OIIA 밈 사운드로 교체하는 것을 전제로 한 임시 루프다.
+assets/sounds/*.mp3 효과음을 합성한다.
 
-    python3 tools/make_sounds.py
+    python3 tools/make_sounds.py [이름 ...]
+
+이름을 주지 않으면 효과음 전체를 다시 만든다.
+oiia_loop.mp3(파티 BGM)는 여기서 만들지 않는다 — 실제 곡에서 잘라내므로
+tools/make_party_bgm.py 가 담당한다. 실수로 덮어쓰지 않도록 분리해 두었다.
 """
 import math, os, random, struct
 import lameenc
@@ -81,10 +84,17 @@ def write(name, samples, bitrate=96):
 
 
 def popcat_pop():
-    # 클래식 "뽁" — 빠른 상승 피치 + 짧은 바디
-    return mix(sine(260, 1250, 0.075, amp=0.85, atk=0.001, rel=0.045),
-               sine(520, 2100, 0.055, amp=0.28, atk=0.001, rel=0.03),
-               noise(0.02, amp=0.18, lp=0.6))
+    """
+    클래식 "뽁" 소리.
+    이전 버전은 75ms 로 너무 짧아 잘 들리지 않았다.
+    저역 바디를 더하고 길이를 늘려 또렷하게 들리도록 했다.
+    """
+    return mix(
+        sine(200, 980, 0.14, amp=0.90, atk=0.001, rel=0.10),    # 메인 스윕
+        sine(95, 150, 0.16, amp=0.42, atk=0.002, rel=0.12),     # 저역 바디
+        sine(420, 1900, 0.06, amp=0.24, atk=0.001, rel=0.035),  # 밝은 배음
+        noise(0.014, amp=0.20, lp=0.7),                          # 입술 떨어지는 순간
+    )
 
 
 def snack_throw():
@@ -137,13 +147,23 @@ def oiia_loop():
     return out
 
 
+SFX = {
+    "popcat_pop": popcat_pop,
+    "snack_throw": snack_throw,
+    "snack_eat": snack_eat,
+    "mood_up": mood_up,
+    "mood_max": mood_max,
+    "button_click": button_click,
+}
+
 if __name__ == "__main__":
+    import sys
+
     os.makedirs(OUT, exist_ok=True)
-    random.seed(1)
-    write("popcat_pop.mp3", popcat_pop())
-    write("snack_throw.mp3", snack_throw())
-    write("snack_eat.mp3", snack_eat())
-    write("mood_up.mp3", mood_up())
-    write("mood_max.mp3", mood_max())
-    write("button_click.mp3", button_click())
-    write("oiia_loop.mp3", oiia_loop(), bitrate=112)
+    names = sys.argv[1:] or list(SFX)
+    for name in names:
+        if name not in SFX:
+            print(f"알 수 없는 이름: {name} (가능: {', '.join(SFX)})")
+            raise SystemExit(1)
+        random.seed(1)
+        write(f"{name}.mp3", SFX[name]())

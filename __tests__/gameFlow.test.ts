@@ -126,6 +126,11 @@ describe('테스트 A — 기본 먹이기', () => {
     expect(sound.calls.indexOf('play:popcat_pop')).toBeLessThan(
       sound.calls.indexOf('play:snack_eat'),
     );
+
+    // 입을 벌리는 프레임 수만큼 "뻐끔뻐끔" 두 번 난다
+    const opens = EAT_CONFIG.popFrames.filter((f) => f.open).length;
+    expect(opens).toBe(2);
+    expect(sound.calls.filter((c) => c === 'play:popcat_pop')).toHaveLength(opens);
   });
 
   it('뻐끔 중 입이 실제로 벌어졌다 닫힌다', async () => {
