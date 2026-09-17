@@ -40,6 +40,7 @@ yarn-error.*
 /ios
 /android
 
-# 로컬 스크린샷 작업용
+# 로컬 검증/스크린샷 작업용 스크래치 스크립트
 .shot*.js
 .inspect.js
+.verify.js
